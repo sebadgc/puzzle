@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linel - Logic & Puzzle</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="background">
+        <div class="grid-bg"></div>
+        <div class="floating-elements">
+            <div class="floating-circle"></div>
+            <div class="floating-square"></div>
+            <div class="floating-triangle"></div>
+        </div>
+    </div>
+
+    <!-- Main Header -->
+    <header class="hero">
+        <div class="hero-content">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 100 100" width="60" height="60">
+                        <defs>
+                            <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#00f5ff"/>
+                                <stop offset="100%" style="stop-color:#8a2be2"/>
+                            </linearGradient>
+                        </defs>
+                        <circle cx="20" cy="20" r="8" fill="url(#logoGradient)"/>
+                        <circle cx="80" cy="80" r="8" fill="url(#logoGradient)"/>
+                        <path d="M20 20 Q50 10 80 80" stroke="url(#logoGradient)" stroke-width="4" fill="none"/>
+                    </svg>
+                </div>
+                <span class="logo-text">LINEL</span>
+            </div>
+            <h1 class="main-title">
+                <span class="title-line">The Ultimate</span>
+                <span class="title-line highlight">Maze Navigation</span>
+                <span class="title-line">Challenge</span>
+            </h1>
+            <p class="hero-subtitle">
+                Navigate through randomly generated mazes. Click to start, follow with your mouse.
+                <br>
+                <span class="subtitle-accent">Dynamic pathfinding puzzles</span>
+            </p>
+            <button class="cta-button" onclick="startGame()">
+                <span class="button-text">Start Puzzle</span>
+                <div class="button-glow"></div>
+            </button>
+        </div>
+    </header>
+
+    <!-- Game Container -->
+    <main class="game-section" id="gameSection" style="display: none;">
+        <div class="game-header">
+            <div class="game-info">
+                <div class="level-indicator">
+                    <span class="level-label">Level</span>
+                    <span class="level-number" id="levelNumber">01</span>
+                </div>
+                <div class="score-display">
+                    <span class="score-label">Score</span>
+                    <span class="score-number" id="scoreNumber">0</span>
+                </div>
+            </div>
+            <button class="menu-button" onclick="showMenu()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+
+        <div class="game-container">
+            <div class="canvas-wrapper">
+                <canvas id="puzzleCanvas" width="500" height="500"></canvas>
+                <div class="canvas-overlay">
+                    <div class="completion-animation" id="completionAnimation">
+                        <div class="success-icon">✓</div>
+                        <div class="success-text">Puzzle Solved!</div>
+                        <div class="success-particles"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="game-controls">
+                <div class="control-group">
+                    <button class="control-btn secondary" id="clearBtn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                        </svg>
+                        Clear Path
+                    </button>
+                    <button class="control-btn primary" id="newPuzzleBtn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 4v6h6"></path>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                        </svg>
+                        New Maze
+                    </button>
+                    <button class="control-btn accent" id="hintBtn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        Hint
+                    </button>
+                </div>
+                
+                <!-- Maze Size Selector -->
+                <div class="maze-size-controls">
+                    <label for="mazeSizeSelect" class="size-label">Maze Size:</label>
+                    <select id="mazeSizeSelect" class="size-select">
+                        <option value="11">Small (11×11)</option>
+                        <option value="15" selected>Medium (15×15)</option>
+                        <option value="19">Large (19×19)</option>
+                        <option value="23">X-Large (23×23)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="status-panel">
+                <div class="status-content" id="status">
+                    <div class="status-icon">🧭</div>
+                    <div class="status-text">Click the green circle to start navigating the maze!</div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Features Section -->
+    <section class="features" id="featuresSection">
+        <div class="features-container">
+            <h2 class="section-title">Game Features</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🧩</div>
+                    <h3>Progressive Mazes</h3>
+                    <p>Navigate through increasingly complex randomly generated mazes</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3>Beautiful Graphics</h3>
+                    <p>Intuitive mouse-following navigation with smart pathfinding</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <h3>Cross-Platform</h3>
+                    <p>Play seamlessly on desktop, tablet, or mobile with responsive design</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🏆</div>
+                    <h3>Achievement System</h3>
+                    <p>Track your progress and unlock achievements as you master each level</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Instructions Section -->
+    <section class="instructions">
+        <div class="instructions-container">
+            <h2 class="section-title">How to Play</h2>
+            <div class="instruction-steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Click to Start</h3>
+                        <p>Click on the green starting circle to begin drawing</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Move to Preview</h3>
+                        <p>Move your mouse to preview the path, click to place points</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Reach the Goal</h3>
+                        <p>When you reach the red square, it automatically solves!</p>
+                    </div>
+                </div>
+                        <h3>Reach the Goal</h3>
+                        <p>End your path at the red square to complete the puzzle</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2024 Linel. Inspired by Jonathan Blow's The Witness.</p>
+            <div class="footer-links">
+                <a href="#" onclick="showAbout()">About</a>
+                <a href="https://github.com/yourusername/line-drawing-puzzle-game" target="_blank">GitHub</a>
+                <a href="#" onclick="showContact()">Contact</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Load JavaScript modules in correct order -->
+    <script src="js/utils.js"></script>
+    <script src="js/puzzle.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+
+    <script>
+        // Page functionality
+        function startGame() {
+            document.getElementById('gameSection').style.display = 'block';
+            document.getElementById('featuresSection').style.display = 'none';
+            document.querySelector('.instructions').style.display = 'none';
+            document.querySelector('.hero').style.display = 'none';
+            
+            // Initialize game
+            if (window.initializeGame) {
+                window.initializeGame();
+                
+                // Set up maze size selector
+                const sizeSelect = document.getElementById('mazeSizeSelect');
+                if (sizeSelect && window.gameInstance) {
+                    sizeSelect.addEventListener('change', (e) => {
+                        const size = parseInt(e.target.value);
+                        window.gameInstance.setMazeSize(size, size);
+                    });
+                }
+            }
+        }
+
+        function showMenu() {
+            document.getElementById('gameSection').style.display = 'none';
+            document.getElementById('featuresSection').style.display = 'block';
+            document.querySelector('.instructions').style.display = 'block';
+            document.querySelector('.hero').style.display = 'flex';
+        }
+
+        function showAbout() {
+            alert('Linel - A modern take on line-drawing puzzle games, inspired by The Witness.');
+        }
+
+        function showContact() {
+            alert('Contact: your.email@example.com');
+        }
+
+        // Smooth scrolling for internal links
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add smooth scroll behavior
+            document.documentElement.style.scrollBehavior = 'smooth';
+            
+            // Initialize floating animations
+            initFloatingAnimations();
+        });
+
+        function initFloatingAnimations() {
+            const elements = document.querySelectorAll('.floating-elements > div');
+            elements.forEach((el, index) => {
+                el.style.animationDelay = `${index * 2}s`;
+            });
+        }
+    </script>
+</body>
+</html>
