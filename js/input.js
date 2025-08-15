@@ -1,27 +1,33 @@
 /**
- * INPUT.JS - Mouse and Touch Input Handling
+ * INPUT.JS - Simple and Reliable Mouse Following for Maze Navigation
  * 
  * This module handles:
- * - Mouse events for desktop interaction
- * - Touch events for mobile devices
- * - Converting screen coordinates to grid coordinates
- * - Path drawing logic
+ * - Single click to start/stop following
+ * - Smooth mouse movement tracking through maze paths
+ * - Simple pathfinding that actually works
+ * - Touch support for mobile devices
  */
 
 // ===========================
-// INPUT HANDLER CLASS
+// SIMPLE INPUT HANDLER CLASS
 // ===========================
 
-class InputHandler {
+class MazeInputHandler {
     constructor(canvas, gameInstance) {
         this.canvas = canvas;
         this.game = gameInstance;
-        this.isDrawing = false;
-        this.lastGridPosition = null;
+        this.isFollowing = false;     // Whether line is following mouse
+        this.currentPosition = null;  // Current position in maze
+        this.currentPath = [];        // Path taken so far
+        this.lastMousePosition = null;
+        
+        // Simple timing to prevent too rapid updates
+        this.lastUpdateTime = 0;
+        this.updateDelay = 50; // 50ms between updates
         
         this.setupEventListeners();
         
-        debugLog('Input Handler Initialized', {
+        debugLog('Simple Maze Input Handler Initialized', {
             canvas: this.canvas.id,
             hasGame: !!this.game
         });
@@ -31,26 +37,38 @@ class InputHandler {
      * Sets up all mouse and touch event listeners
      */
     setupEventListeners() {
-        // Mouse events for desktop
-        this.canvas.addEventListener('mousedown', this.handleStart.bind(this));
-        this.canvas.addEventListener('mousemove', this.handleMove.bind(this));
-        this.canvas.addEventListener('mouseup', this.handleEnd.bind(this));
-        this.canvas.addEventListener('mouseleave', this.handleEnd.bind(this));
+        console.log('🔧 Setting up event listeners...');
         
-        // Touch events for mobile
-        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this));
-        this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this));
-        this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this));
-        this.canvas.addEventListener('touchcancel', this.handleTouchEnd.bind(this));
+        // REMOVE ALL EXISTING EVENT LISTENERS FIRST
+        this.canvas.removeEventListener('click', this.handleClick);
         
-        // Prevent default touch behaviors
-        this.canvas.addEventListener('touchstart', this.preventDefault, { passive: false });
-        this.canvas.addEventListener('touchmove', this.preventDefault, { passive: false });
+        // Test if our method exists
+        console.log('🔍 handleClick method exists:', typeof this.handleClick);
+        
+        // Use a single, clear event listener
+        this.canvas.addEventListener('click', (event) => {
+            console.log('🖱️ === MAIN CLICK HANDLER TRIGGERED ===');
+            
+            // Prevent other handlers from running
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            
+            this.handleClick(event);
+        }, true); // Use capture phase to run first
+        
+        this.canvas.addEventListener('mousemove', (event) => {
+            this.handleMouseMove(event);
+        });
+        
+        this.canvas.addEventListener('mouseleave', (event) => {
+            this.handleMouseLeave(event);
+        });
+        
+        console.log('✅ Clean event listeners setup complete');
     }
     
     /**
-     * Prevents default touch behaviors to avoid scrolling
-     * @param {Event} e - Touch event
+     * Prevents default touch behaviors
      */
     preventDefault(e) {
         e.preventDefault();
@@ -67,69 +85,127 @@ class InputHandler {
     }
     
     /**
-     * Handles the start of drawing (mouse down or touch start)
-     * @param {Event} event - Input event
+     * Handles mouse clicks - start/stop following
+     * @param {MouseEvent} event - Mouse click event
      */
-    handleStart(event) {
+    handleClick(event) {
+        if (!this.game || !this.game.currentPuzzle) return;
+        
         const gridPos = this.getGridPositionFromEvent(event);
         if (!gridPos) return;
         
-        debugLog('Drawing Start', gridPos);
+        debugLog('Click', { gridPos, isFollowing: this.isFollowing });
         
-        // Only start drawing from the start point
-        if (this.game && this.game.canStartDrawingAt(gridPos)) {
-            this.isDrawing = true;
-            this.lastGridPosition = gridPos;
-            this.game.startPath(gridPos);
-            
-            // Update cursor
-            this.canvas.style.cursor = 'grabbing';
+        if (!this.isFollowing) {
+            // Try to start following from start position
+            if (this.game.currentPuzzle.isStartPosition(gridPos)) {
+                this.startFollowing(gridPos);
+            } else {
+                this.game.updateStatus("Click the green circle to start!");
+            }
+        } else {
+            // Stop following
+            this.stopFollowing();
         }
     }
     
     /**
-     * Handles drawing movement (mouse move or touch move)
-     * @param {Event} event - Input event
+     * Handles mouse movement - follow through maze with high precision
+     * @param {MouseEvent} event - Mouse move event
      */
-    handleMove(event) {
-        if (!this.isDrawing || !this.game) return;
+    handleMouseMove(event) {
+        if (!this.isFollowing || !this.game || !this.game.currentPuzzle) return;
         
-        const gridPos = this.getGridPositionFromEvent(event);
-        if (!gridPos) return;
+        const currentTime = Date.now();
+        if (currentTime - this.lastUpdateTime < this.updateDelay) {
+            return; // Too soon since last update
+        }
         
-        // Only add point if it's different from the last point
-        if (!this.lastGridPosition || 
-            !pointsEqual(gridPos, this.lastGridPosition)) {
+        const mousePos = getEventPosition(event, this.canvas);
+        this.lastMousePosition = mousePos;
+        
+        // Find the closest valid adjacent movement cell to mouse
+        const nextPos = this.findClosestValidMovementToMouse(mousePos);
+        
+        if (nextPos && !pointsEqual(nextPos, this.currentPosition)) {
+            this.moveToPosition(nextPos);
+            this.lastUpdateTime = currentTime;
+        }
+    }
+    
+    /**
+     * Finds the closest valid movement toward mouse position
+     * @param {Object} mousePos - Mouse position {x, y}
+     * @returns {Object|null} - Next movement position or null
+     */
+    findClosestValidMovementToMouse(mousePos) {
+        if (!this.currentPosition) return null;
+        
+        // Get all valid adjacent movement cells (8 directions for smooth movement)
+        const validMoves = getValidAdjacentMovementCells(
+            this.currentPosition.x, 
+            this.currentPosition.y, 
+            this.game.currentPuzzle.maze
+        );
+        
+        if (validMoves.length === 0) return null;
+        
+        // Convert mouse position to movement grid coordinates
+        const mouseMovement = pixelToMovementGrid(mousePos.x, mousePos.y);
+        
+        // Find the valid move closest to mouse position
+        let closestMove = null;
+        let closestDistance = Infinity;
+        
+        for (const move of validMoves) {
+            // Calculate distance from this move to mouse position
+            const distance = Math.sqrt(
+                Math.pow(move.x - mouseMovement.x, 2) + 
+                Math.pow(move.y - mouseMovement.y, 2)
+            );
             
-            // Check if the new point is adjacent to the last point
-            if (areAdjacent(this.lastGridPosition, gridPos)) {
-                this.lastGridPosition = gridPos;
-                this.game.addPointToPath(gridPos);
-                
-                debugLog('Path Extended', gridPos);
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closestMove = move;
             }
         }
+        
+        return closestMove;
     }
     
     /**
-     * Handles the end of drawing (mouse up or touch end)
-     * @param {Event} event - Input event
+     * Starts following the mouse from given position (convert to movement coordinates)
+     * @param {Object} startPos - Starting position {x, y} in visual coordinates
      */
-    handleEnd(event) {
-        if (!this.isDrawing) return;
+    startFollowing(startPos) {
+        this.isFollowing = true;
         
-        debugLog('Drawing End', this.lastGridPosition);
+        // Convert visual coordinates to movement coordinates (center of visual cell)
+        const movementStart = visualToMovementGrid(startPos.x, startPos.y);
+        movementStart.x += GAME_CONFIG.MOVEMENT_RESOLUTION / 2; // Center
+        movementStart.y += GAME_CONFIG.MOVEMENT_RESOLUTION / 2; // Center
         
-        this.isDrawing = false;
-        this.lastGridPosition = null;
+        this.currentPosition = { ...movementStart };
+        this.currentPath = [{ ...movementStart }];
+        this.lastUpdateTime = 0;
         
-        // Reset cursor
+        // Update cursor and game state
         this.canvas.style.cursor = 'crosshair';
+        this.game.startPath(this.currentPath);
+        this.game.updateStatus("Move mouse to navigate through the maze. Click to stop.");
         
-        // Validate the path
-        if (this.game) {
-            this.game.finishPath();
-        }
+        debugLog('Started Following', { 
+            visualStart: startPos,
+            movementStart: movementStart 
+        });
+    }
+    
+    /**
+     * Handles mouse leaving canvas
+     */
+    handleMouseLeave(event) {
+        // Don't stop following when mouse leaves
+        this.lastMousePosition = null;
     }
     
     /**
@@ -140,9 +216,8 @@ class InputHandler {
         event.preventDefault();
         
         if (event.touches.length === 1) {
-            // Use the first touch point
             const touch = event.touches[0];
-            this.handleStart(touch);
+            this.handleClick(touch);
         }
     }
     
@@ -154,9 +229,8 @@ class InputHandler {
         event.preventDefault();
         
         if (event.touches.length === 1) {
-            // Use the first touch point
             const touch = event.touches[0];
-            this.handleMove(touch);
+            this.handleMouseMove(touch);
         }
     }
     
@@ -166,7 +240,108 @@ class InputHandler {
      */
     handleTouchEnd(event) {
         event.preventDefault();
-        this.handleEnd(event);
+        // For touch, we don't stop following on touch end
+    }
+    
+    /**
+     * Starts following the mouse from given position
+     * @param {Object} startPos - Starting position {x, y}
+     */
+    startFollowing(startPos) {
+        this.isFollowing = true;
+        this.currentPosition = { ...startPos };
+        this.currentPath = [{ ...startPos }];
+        this.lastUpdateTime = 0;
+        
+        // Update cursor and game state
+        this.canvas.style.cursor = 'crosshair';
+        this.game.startPath(this.currentPath);
+        this.game.updateStatus("Move mouse to navigate through the maze. Click to stop.");
+        
+        debugLog('Started Following', { startPos });
+    }
+    
+    /**
+     * Stops following the mouse
+     */
+    stopFollowing() {
+        this.isFollowing = false;
+        this.canvas.style.cursor = 'default';
+        
+        this.game.updateStatus("Click the green circle to start again.");
+        
+        debugLog('Stopped Following', { 
+            pathLength: this.currentPath.length,
+            currentPos: this.currentPosition 
+        });
+    }
+    
+    /**
+     * Moves to a new position in the maze - SIMPLIFIED
+     * @param {Object} newPos - New position {x, y} in grid coordinates
+     */
+    moveToPosition(newPos) {
+        console.log('🏃 Moving to position:', newPos);
+        
+        if (!this.game.currentPuzzle.isValidPosition(newPos)) {
+            console.log('❌ Invalid position:', newPos);
+            return;
+        }
+        
+        // Check if we're going back to a previous position (backtracking)
+        const existingIndex = this.currentPath.findIndex(pos => pointsEqual(pos, newPos));
+        
+        if (existingIndex !== -1) {
+            // Backtracking - cut the path at this position
+            this.currentPath = this.currentPath.slice(0, existingIndex + 1);
+            console.log('🔄 Backtracking to index', existingIndex);
+        } else {
+            // Moving to new position - add it to path
+            this.currentPath.push({ ...newPos });
+            console.log('➕ Adding new position to path');
+        }
+        
+        this.currentPosition = { ...newPos };
+        
+        // Update game with new path
+        this.game.updatePath(this.currentPath);
+        
+        // Check if we reached the end
+        if (this.game.currentPuzzle.isEndPosition(newPos)) {
+            console.log('🎉 Reached the end!');
+            this.reachedEnd();
+        }
+        
+        console.log('✅ Position updated, path length:', this.currentPath.length);
+    }
+    
+    /**
+     * Handles reaching the end of the maze
+     */
+    reachedEnd() {
+        this.isFollowing = false;
+        this.canvas.style.cursor = 'default';
+        
+        // Automatically solve the puzzle
+        this.game.finishPath();
+        
+        debugLog('Reached End', { 
+            pathLength: this.currentPath.length 
+        });
+    }
+    
+    /**
+     * Clears the current path and resets state
+     */
+    clearPath() {
+        this.isFollowing = false;
+        this.currentPosition = null;
+        this.currentPath = [];
+        this.lastMousePosition = null;
+        this.lastUpdateTime = 0;
+        this.canvas.style.cursor = 'default';
+        
+        debugLog('Path Cleared', {});
     }
     
     /**
@@ -174,7 +349,7 @@ class InputHandler {
      */
     enable() {
         this.canvas.style.pointerEvents = 'auto';
-        this.canvas.style.cursor = 'crosshair';
+        this.canvas.style.cursor = 'default';
     }
     
     /**
@@ -183,8 +358,7 @@ class InputHandler {
     disable() {
         this.canvas.style.pointerEvents = 'none';
         this.canvas.style.cursor = 'default';
-        this.isDrawing = false;
-        this.lastGridPosition = null;
+        this.clearPath();
     }
     
     /**
@@ -196,19 +370,27 @@ class InputHandler {
     }
     
     /**
-     * Gets current drawing state
-     * @returns {boolean} - True if currently drawing
+     * Gets current following state
+     * @returns {boolean} - True if currently following mouse
      */
-    isCurrentlyDrawing() {
-        return this.isDrawing;
+    isCurrentlyFollowing() {
+        return this.isFollowing;
     }
     
     /**
-     * Gets the last grid position that was interacted with
-     * @returns {Object|null} - {x, y} grid coordinates or null
+     * Gets the current path
+     * @returns {Array} - Array of {x, y} coordinates
      */
-    getLastPosition() {
-        return this.lastGridPosition;
+    getCurrentPath() {
+        return [...this.currentPath];
+    }
+    
+    /**
+     * Gets the current position
+     * @returns {Object|null} - Current position {x, y} or null
+     */
+    getCurrentPosition() {
+        return this.currentPosition ? { ...this.currentPosition } : null;
     }
     
     /**
@@ -216,93 +398,22 @@ class InputHandler {
      */
     destroy() {
         // Remove mouse events
-        this.canvas.removeEventListener('mousedown', this.handleStart.bind(this));
-        this.canvas.removeEventListener('mousemove', this.handleMove.bind(this));
-        this.canvas.removeEventListener('mouseup', this.handleEnd.bind(this));
-        this.canvas.removeEventListener('mouseleave', this.handleEnd.bind(this));
+        this.canvas.removeEventListener('click', this.handleClick.bind(this));
+        this.canvas.removeEventListener('mousemove', this.handleMouseMove.bind(this));
+        this.canvas.removeEventListener('mouseleave', this.handleMouseLeave.bind(this));
         
         // Remove touch events
         this.canvas.removeEventListener('touchstart', this.handleTouchStart.bind(this));
         this.canvas.removeEventListener('touchmove', this.handleTouchMove.bind(this));
         this.canvas.removeEventListener('touchend', this.handleTouchEnd.bind(this));
-        this.canvas.removeEventListener('touchcancel', this.handleTouchEnd.bind(this));
         
-        debugLog('Input Handler Destroyed', {});
+        debugLog('Simple Maze Input Handler Destroyed', {});
     }
-}
-
-// ===========================
-// HELPER FUNCTIONS
-// ===========================
-
-/**
- * Checks if a point is within the canvas bounds
- * @param {Object} point - {x, y} coordinates
- * @param {HTMLCanvasElement} canvas - Canvas element
- * @returns {boolean} - True if point is within bounds
- */
-function isPointInCanvas(point, canvas) {
-    const rect = canvas.getBoundingClientRect();
-    return point.x >= 0 && point.x <= rect.width &&
-           point.y >= 0 && point.y <= rect.height;
-}
-
-/**
- * Gets the distance between two points in pixels
- * @param {Object} point1 - {x, y} pixel coordinates
- * @param {Object} point2 - {x, y} pixel coordinates
- * @returns {number} - Distance in pixels
- */
-function getPixelDistance(point1, point2) {
-    const dx = point1.x - point2.x;
-    const dy = point1.y - point2.y;
-    return Math.sqrt(dx * dx + dy * dy);
-}
-
-/**
- * Smooths a path by removing redundant points
- * @param {Array} path - Array of {x, y} coordinates
- * @returns {Array} - Smoothed path
- */
-function smoothPath(path) {
-    if (path.length <= 2) return path;
-    
-    const smoothed = [path[0]]; // Always keep first point
-    
-    for (let i = 1; i < path.length - 1; i++) {
-        const prev = path[i - 1];
-        const current = path[i];
-        const next = path[i + 1];
-        
-        // Keep point if it changes direction
-        if (!isCollinear(prev, current, next)) {
-            smoothed.push(current);
-        }
-    }
-    
-    smoothed.push(path[path.length - 1]); // Always keep last point
-    return smoothed;
-}
-
-/**
- * Checks if three points are collinear (on the same line)
- * @param {Object} p1 - {x, y} coordinates
- * @param {Object} p2 - {x, y} coordinates
- * @param {Object} p3 - {x, y} coordinates
- * @returns {boolean} - True if points are collinear
- */
-function isCollinear(p1, p2, p3) {
-    // Calculate the area of triangle formed by three points
-    // If area is 0, points are collinear
-    const area = Math.abs((p1.x * (p2.y - p3.y) + 
-                          p2.x * (p3.y - p1.y) + 
-                          p3.x * (p1.y - p2.y)) / 2);
-    return area < 0.01; // Small threshold for floating point precision
 }
 
 // ===========================
 // EXPORT FOR OTHER MODULES
 // ===========================
 
-// Make InputHandler available globally
-window.InputHandler = InputHandler;
+// Make MazeInputHandler available globally
+window.MazeInputHandler = MazeInputHandler;

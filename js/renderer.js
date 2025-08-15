@@ -1,382 +1,296 @@
 /**
- * RENDERER.JS - Canvas Drawing and Visual Effects
- * 
- * This module handles all visual rendering:
- * - Drawing the grid and puzzle elements
- * - Rendering the player's path
- * - Visual effects and animations
- * - Canvas management
+ * RENDERER.JS - Debug Renderer - Let's see what's happening
  */
 
-// ===========================
-// RENDERER CLASS
-// ===========================
-
-class GameRenderer {
+class MazeRenderer {
     constructor(canvasId) {
+        console.log('🔍 Trying to find canvas with ID:', canvasId);
+        
         this.canvas = document.getElementById(canvasId);
+        
+        if (!this.canvas) {
+            console.error('❌ Canvas not found! Available elements:', 
+                Array.from(document.querySelectorAll('canvas')).map(c => c.id));
+            return;
+        }
+        
+        console.log('✅ Canvas found:', this.canvas);
+        
         this.ctx = this.canvas.getContext('2d');
         
-        // Set up high-DPI canvas for crisp graphics
-        this.setupHighDPICanvas();
+        if (!this.ctx) {
+            console.error('❌ Could not get 2D context');
+            return;
+        }
         
-        debugLog('Renderer Initialized', {
-            canvasSize: `${this.canvas.width}x${this.canvas.height}`,
-            dpr: window.devicePixelRatio
-        });
+        console.log('✅ 2D context obtained');
+        
+        // Test draw immediately
+        this.testDraw();
+        
+        console.log('✅ MazeRenderer initialized successfully');
     }
     
     /**
-     * Sets up canvas for high-DPI displays
+     * Test if canvas is working at all
      */
-    setupHighDPICanvas() {
-        const dpr = window.devicePixelRatio || 1;
-        const rect = this.canvas.getBoundingClientRect();
+    testDraw() {
+        console.log('🎨 Testing canvas drawing...');
         
-        this.canvas.width = rect.width * dpr;
-        this.canvas.height = rect.height * dpr;
+        const ctx = this.ctx;
         
-        this.ctx.scale(dpr, dpr);
+        // Clear with bright color so we know it's working
+        ctx.fillStyle = '#ff0000'; // Bright red
+        ctx.fillRect(0, 0, 500, 500);
         
-        this.canvas.style.width = rect.width + 'px';
-        this.canvas.style.height = rect.height + 'px';
+        // Draw test pattern
+        ctx.fillStyle = '#00ff00'; // Bright green
+        ctx.fillRect(50, 50, 100, 100);
+        
+        ctx.fillStyle = '#0000ff'; // Bright blue
+        ctx.fillRect(200, 200, 100, 100);
+        
+        // Draw text
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '20px Arial';
+        ctx.fillText('CANVAS WORKING!', 150, 300);
+        
+        console.log('✅ Test drawing complete - you should see red background with green/blue squares');
     }
     
     /**
-     * Clears the entire canvas
+     * Resize canvas
+     */
+    resizeCanvas(width, height) {
+        console.log('📐 Resizing canvas to:', width, 'x', height);
+        
+        this.canvas.width = width * 20; // Make it bigger
+        this.canvas.height = height * 20;
+        this.canvas.style.width = (width * 20) + 'px';
+        this.canvas.style.height = (height * 20) + 'px';
+        
+        // Test draw after resize
+        this.testDraw();
+    }
+    
+    /**
+     * Clear canvas
      */
     clear() {
+        console.log('🧹 Clearing canvas');
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
     
     /**
-     * Draws everything on the canvas
-     * @param {Puzzle} puzzle - Current puzzle
-     * @param {Array} currentPath - Player's current path
+     * Draw everything - now let's try to show the actual maze
      */
-    drawAll(puzzle, currentPath = []) {
+    drawAll(puzzle, path = []) {
+        console.log('🎯 DrawAll called with:', {
+            puzzle: puzzle ? 'EXISTS' : 'NULL',
+            puzzleType: puzzle ? typeof puzzle : 'N/A',
+            hasMaze: puzzle && puzzle.maze ? 'YES' : 'NO',
+            mazeSize: puzzle && puzzle.maze ? `${puzzle.maze.length}x${puzzle.maze[0]?.length}` : 'N/A',
+            pathLength: path ? path.length : 0,
+            startPoint: puzzle?.startPoint,
+            endPoint: puzzle?.endPoint
+        });
+        
+        // Clear first
         this.clear();
-        this.drawGrid();
-        this.drawPuzzleElements(puzzle);
-        this.drawPath(currentPath);
+        
+        if (!puzzle) {
+            console.log('❌ No puzzle provided to drawAll');
+            this.drawErrorMessage('NO PUZZLE DATA');
+            return;
+        }
+        
+        if (!puzzle.maze) {
+            console.log('❌ Puzzle has no maze data');
+            this.drawErrorMessage('NO MAZE DATA');
+            return;
+        }
+        
+        // Try to draw the real maze now
+        console.log('🧱 Attempting to draw maze...');
+        this.drawMaze(puzzle.maze);
+        
+        // Draw start/end if they exist
+        if (puzzle.startPoint) {
+            console.log('📍 Drawing start point:', puzzle.startPoint);
+            this.drawStartPoint(puzzle.startPoint);
+        } else {
+            console.log('⚠️ No start point found');
+        }
+        
+        if (puzzle.endPoint) {
+            console.log('🎯 Drawing end point:', puzzle.endPoint);
+            this.drawEndPoint(puzzle.endPoint);
+        } else {
+            console.log('⚠️ No end point found');
+        }
+        
+        // Draw path if it exists
+        if (path && path.length > 0) {
+            console.log('🛤️ Drawing path with', path.length, 'points');
+            this.drawPath(path);
+        }
+        
+        console.log('✅ DrawAll complete');
     }
     
     /**
-     * Draws the background grid
+     * Draw error message
      */
-    drawGrid() {
+    drawErrorMessage(message) {
+        this.ctx.fillStyle = '#ff4444';
+        this.ctx.fillRect(0, 0, 400, 400);
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = '16px Arial';
+        this.ctx.fillText(message, 50, 200);
+    }
+    
+    /**
+     * Draw the actual maze - improved version
+     */
+    drawMaze(maze) {
+        console.log('🧱 Drawing maze, size:', maze.length, 'x', maze[0].length);
+        console.log('🔍 First few cells:', maze[0].slice(0, 5));
+        console.log('🔍 CELL_TYPES available:', typeof CELL_TYPES !== 'undefined' ? CELL_TYPES : 'NOT DEFINED');
+        
+        const cellSize = 20;
         const ctx = this.ctx;
-        const gridSize = GAME_CONFIG.GRID_SIZE;
-        const cellSize = GAME_CONFIG.CELL_SIZE;
         
-        // Draw grid lines
-        ctx.strokeStyle = GAME_CONFIG.COLORS.GRID_LINE;
-        ctx.lineWidth = 1;
+        // Draw background first
+        ctx.fillStyle = '#1a1a2e'; // Dark background
+        ctx.fillRect(0, 0, maze[0].length * cellSize, maze.length * cellSize);
         
-        // Vertical lines
-        for (let x = 0; x <= gridSize; x++) {
-            const pixelX = x * cellSize + cellSize / 2;
-            ctx.beginPath();
-            ctx.moveTo(pixelX, cellSize / 2);
-            ctx.lineTo(pixelX, gridSize * cellSize + cellSize / 2);
-            ctx.stroke();
-        }
-        
-        // Horizontal lines
-        for (let y = 0; y <= gridSize; y++) {
-            const pixelY = y * cellSize + cellSize / 2;
-            ctx.beginPath();
-            ctx.moveTo(cellSize / 2, pixelY);
-            ctx.lineTo(gridSize * cellSize + cellSize / 2, pixelY);
-            ctx.stroke();
-        }
-        
-        // Draw intersection dots
-        ctx.fillStyle = GAME_CONFIG.COLORS.GRID_DOT;
-        for (let x = 0; x <= gridSize; x++) {
-            for (let y = 0; y <= gridSize; y++) {
-                const pixel = gridToPixel(x, y);
-                ctx.beginPath();
-                ctx.arc(pixel.x, pixel.y, 3, 0, 2 * Math.PI);
-                ctx.fill();
+        for (let y = 0; y < maze.length; y++) {
+            for (let x = 0; x < maze[y].length; x++) {
+                const cell = maze[y][x];
+                const pixelX = x * cellSize;
+                const pixelY = y * cellSize;
+                
+                // Try to detect what each cell value means
+                if (cell === 0) {
+                    // Assuming 0 = wall
+                    ctx.fillStyle = '#16213e'; // Dark blue walls
+                    ctx.fillRect(pixelX, pixelY, cellSize, cellSize);
+                } else if (cell === 1) {
+                    // Assuming 1 = path
+                    ctx.fillStyle = '#e3f2fd'; // Light blue paths
+                    ctx.fillRect(pixelX, pixelY, cellSize, cellSize);
+                } else if (cell === 2) {
+                    // Assuming 2 = start
+                    ctx.fillStyle = '#c8e6c9'; // Light green
+                    ctx.fillRect(pixelX, pixelY, cellSize, cellSize);
+                } else if (cell === 3) {
+                    // Assuming 3 = end
+                    ctx.fillStyle = '#ffcdd2'; // Light red
+                    ctx.fillRect(pixelX, pixelY, cellSize, cellSize);
+                } else {
+                    // Unknown cell type - make it bright magenta so we notice
+                    ctx.fillStyle = '#ff00ff';
+                    ctx.fillRect(pixelX, pixelY, cellSize, cellSize);
+                    console.log(`⚠️ Unknown cell type ${cell} at (${x}, ${y})`);
+                }
             }
         }
+        
+        console.log('✅ Maze drawn successfully');
     }
     
     /**
-     * Draws puzzle elements (start point, end point, etc.)
-     * @param {Puzzle} puzzle - Current puzzle
-     */
-    drawPuzzleElements(puzzle) {
-        if (!puzzle) return;
-        
-        this.drawStartPoint(puzzle.startPoint);
-        this.drawEndPoint(puzzle.endPoint);
-        
-        // Future: Draw other puzzle elements (colored squares, stars, etc.)
-        this.drawPuzzleSpecificElements(puzzle);
-    }
-    
-    /**
-     * Draws the start point (green circle)
-     * @param {Object} startPoint - {x, y} grid coordinates
+     * Draw start point
      */
     drawStartPoint(startPoint) {
-        if (!startPoint) return;
-        
-        const pixel = gridToPixel(startPoint.x, startPoint.y);
+        const cellSize = 20;
         const ctx = this.ctx;
+        const centerX = startPoint.x * cellSize + cellSize / 2;
+        const centerY = startPoint.y * cellSize + cellSize / 2;
         
-        // Draw main circle
-        ctx.fillStyle = GAME_CONFIG.COLORS.START_POINT;
+        ctx.fillStyle = '#00ff00'; // Bright green
         ctx.beginPath();
-        ctx.arc(pixel.x, pixel.y, 12, 0, 2 * Math.PI);
+        ctx.arc(centerX, centerY, cellSize / 3, 0, 2 * Math.PI);
         ctx.fill();
         
-        // Add subtle border
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        console.log('✅ Start point drawn at:', centerX, centerY);
     }
     
     /**
-     * Draws the end point (red rounded square)
-     * @param {Object} endPoint - {x, y} grid coordinates
+     * Draw end point
      */
     drawEndPoint(endPoint) {
-        if (!endPoint) return;
-        
-        const pixel = gridToPixel(endPoint.x, endPoint.y);
+        const cellSize = 20;
         const ctx = this.ctx;
+        const centerX = endPoint.x * cellSize + cellSize / 2;
+        const centerY = endPoint.y * cellSize + cellSize / 2;
         
-        // Draw rounded square
-        ctx.fillStyle = GAME_CONFIG.COLORS.END_POINT;
-        ctx.beginPath();
-        ctx.roundRect(pixel.x - 10, pixel.y - 10, 20, 20, 3);
-        ctx.fill();
+        ctx.fillStyle = '#ff0000'; // Bright red
+        ctx.fillRect(centerX - cellSize/3, centerY - cellSize/3, cellSize*2/3, cellSize*2/3);
         
-        // Add subtle border
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        console.log('✅ End point drawn at:', centerX, centerY);
     }
     
     /**
-     * Draws puzzle-specific elements
-     * @param {Puzzle} puzzle - Current puzzle
-     */
-    drawPuzzleSpecificElements(puzzle) {
-        // Future implementation for different puzzle types
-        switch (puzzle.type) {
-            case PUZZLE_TYPES.COLORED_SQUARES:
-                this.drawColoredSquares(puzzle.elements);
-                break;
-            case PUZZLE_TYPES.STARS:
-                this.drawStars(puzzle.elements);
-                break;
-            case PUZZLE_TYPES.TETRIS:
-                this.drawTetrisShapes(puzzle.elements);
-                break;
-        }
-    }
-    
-    /**
-     * Draws the player's current path
-     * @param {Array} path - Array of {x, y} grid coordinates
+     * Draw path
      */
     drawPath(path) {
         if (!path || path.length < 2) return;
         
+        console.log('🛤️ Drawing path with', path.length, 'points');
+        
+        const cellSize = 20;
         const ctx = this.ctx;
         
-        ctx.strokeStyle = GAME_CONFIG.COLORS.PATH;
-        ctx.lineWidth = GAME_CONFIG.LINE_WIDTH;
+        ctx.strokeStyle = '#0088ff';
+        ctx.lineWidth = 4;
         ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
         
         ctx.beginPath();
-        
-        // Convert grid coordinates to pixel coordinates and draw path
         for (let i = 0; i < path.length; i++) {
             const point = path[i];
-            const pixel = gridToPixel(point.x, point.y);
+            const x = point.x * cellSize / 10 + cellSize / 2;
+            const y = point.y * cellSize / 10 + cellSize / 2;
             
             if (i === 0) {
-                ctx.moveTo(pixel.x, pixel.y);
+                ctx.moveTo(x, y);
             } else {
-                ctx.lineTo(pixel.x, pixel.y);
+                ctx.lineTo(x, y);
             }
         }
-        
         ctx.stroke();
-        
-        // Draw path endpoints
-        this.drawPathEndpoints(path);
     }
     
     /**
-     * Draws small circles at path endpoints for better visibility
-     * @param {Array} path - Array of {x, y} grid coordinates
+     * Celebration
      */
-    drawPathEndpoints(path) {
-        if (!path || path.length === 0) return;
+    celebrateWin(path, puzzle, callback) {
+        console.log('🎉 CELEBRATING WIN!');
         
-        const ctx = this.ctx;
+        // Flash the screen
+        this.ctx.fillStyle = '#ffff00';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Draw start of path
-        const startPixel = gridToPixel(path[0].x, path[0].y);
-        ctx.fillStyle = GAME_CONFIG.COLORS.PATH;
-        ctx.beginPath();
-        ctx.arc(startPixel.x, startPixel.y, GAME_CONFIG.LINE_WIDTH / 2, 0, 2 * Math.PI);
-        ctx.fill();
-        
-        // Draw end of path (if different from start)
-        if (path.length > 1) {
-            const endPixel = gridToPixel(path[path.length - 1].x, path[path.length - 1].y);
-            ctx.beginPath();
-            ctx.arc(endPixel.x, endPixel.y, GAME_CONFIG.LINE_WIDTH / 2, 0, 2 * Math.PI);
-            ctx.fill();
-        }
+        setTimeout(() => {
+            this.drawAll(puzzle, path);
+            if (callback) callback();
+        }, 1000);
     }
     
     /**
-     * Draws a glowing effect around the path (for success animation)
-     * @param {Array} path - Array of {x, y} grid coordinates
-     * @param {number} glowIntensity - Glow intensity (0-20)
-     */
-    drawGlowingPath(path, glowIntensity = 10) {
-        if (!path || path.length < 2) return;
-        
-        const ctx = this.ctx;
-        
-        // Save current state
-        ctx.save();
-        
-        // Set up glow effect
-        ctx.shadowBlur = glowIntensity;
-        ctx.shadowColor = GAME_CONFIG.COLORS.GLOW;
-        ctx.strokeStyle = GAME_CONFIG.COLORS.GLOW;
-        ctx.lineWidth = GAME_CONFIG.LINE_WIDTH + 2;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        
-        ctx.beginPath();
-        
-        for (let i = 0; i < path.length; i++) {
-            const point = path[i];
-            const pixel = gridToPixel(point.x, point.y);
-            
-            if (i === 0) {
-                ctx.moveTo(pixel.x, pixel.y);
-            } else {
-                ctx.lineTo(pixel.x, pixel.y);
-            }
-        }
-        
-        ctx.stroke();
-        
-        // Restore state
-        ctx.restore();
-        
-        // Draw regular path on top
-        this.drawPath(path);
-    }
-    
-    /**
-     * Future: Draw colored squares for puzzle type
-     * @param {Array} elements - Array of colored square elements
-     */
-    drawColoredSquares(elements) {
-        // Implementation for colored squares puzzle type
-        // This will be added when we implement that puzzle type
-    }
-    
-    /**
-     * Future: Draw stars for collection puzzle type
-     * @param {Array} elements - Array of star elements
-     */
-    drawStars(elements) {
-        // Implementation for stars puzzle type
-        // This will be added when we implement that puzzle type
-    }
-    
-    /**
-     * Future: Draw tetris shapes for outline puzzle type
-     * @param {Array} elements - Array of tetris shape elements
-     */
-    drawTetrisShapes(elements) {
-        // Implementation for tetris puzzle type
-        // This will be added when we implement that puzzle type
-    }
-    
-    /**
-     * Animates a celebration effect when puzzle is solved
-     * @param {Array} path - The solved path
-     * @param {Function} callback - Called when animation completes
-     */
-    celebrateWin(path, callback) {
-        let glowIntensity = 0;
-        let increasing = true;
-        let animationCount = 0;
-        const maxAnimations = 3;
-        
-        const animate = () => {
-            // Clear and redraw everything
-            this.clear();
-            this.drawGrid();
-            
-            // Draw the glowing path
-            this.drawGlowingPath(path, glowIntensity);
-            
-            // Update glow intensity
-            if (increasing) {
-                glowIntensity += 2;
-                if (glowIntensity >= GAME_CONFIG.MAX_GLOW) {
-                    increasing = false;
-                }
-            } else {
-                glowIntensity -= 2;
-                if (glowIntensity <= 0) {
-                    increasing = true;
-                    animationCount++;
-                }
-            }
-            
-            // Continue animation or finish
-            if (animationCount < maxAnimations) {
-                setTimeout(animate, GAME_CONFIG.GLOW_SPEED);
-            } else {
-                // Final draw without glow
-                this.clear();
-                this.drawGrid();
-                this.drawPath(path);
-                if (callback) callback();
-            }
-        };
-        
-        animate();
-    }
-    
-    /**
-     * Gets the canvas element (useful for input handling)
-     * @returns {HTMLCanvasElement} - The canvas element
+     * Get canvas
      */
     getCanvas() {
         return this.canvas;
     }
     
     /**
-     * Gets the 2D rendering context
-     * @returns {CanvasRenderingContext2D} - The 2D context
+     * Get context
      */
     getContext() {
         return this.ctx;
     }
 }
 
-// ===========================
-// EXPORT FOR OTHER MODULES
-// ===========================
-
-// Make GameRenderer available globally
-window.GameRenderer = GameRenderer;
+// Export
+window.MazeRenderer = MazeRenderer;

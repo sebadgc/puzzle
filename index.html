@@ -1,9 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus Puzzles - Line Drawing Game</title>
+    <title>Linel - Logic & Puzzle</title>
     <link rel="stylesheet" href="css/styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,17 +40,17 @@
                         <path d="M20 20 Q50 10 80 80" stroke="url(#logoGradient)" stroke-width="4" fill="none"/>
                     </svg>
                 </div>
-                <span class="logo-text">NEXUS</span>
+                <span class="logo-text">LINEL</span>
             </div>
             <h1 class="main-title">
                 <span class="title-line">The Ultimate</span>
-                <span class="title-line highlight">Line Drawing</span>
-                <span class="title-line">Puzzle Experience</span>
+                <span class="title-line highlight">Maze Navigation</span>
+                <span class="title-line">Challenge</span>
             </h1>
             <p class="hero-subtitle">
-                Connect the dots. Solve the puzzle. Master the grid.
+                Navigate through randomly generated mazes. Click to start, follow with your mouse.
                 <br>
-                <span class="subtitle-accent">Inspired by The Witness</span>
+                <span class="subtitle-accent">Dynamic pathfinding puzzles</span>
             </p>
             <button class="cta-button" onclick="startGame()">
                 <span class="button-text">Start Puzzle</span>
@@ -98,14 +101,14 @@
                             <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
                             <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
                         </svg>
-                        Clear
+                        Clear Path
                     </button>
                     <button class="control-btn primary" id="newPuzzleBtn">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M1 4v6h6"></path>
                             <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
                         </svg>
-                        New Puzzle
+                        New Maze
                     </button>
                     <button class="control-btn accent" id="hintBtn">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -116,12 +119,23 @@
                         Hint
                     </button>
                 </div>
+                
+                <!-- Maze Size Selector -->
+                <div class="maze-size-controls">
+                    <label for="mazeSizeSelect" class="size-label">Maze Size:</label>
+                    <select id="mazeSizeSelect" class="size-select">
+                        <option value="11">Small (11×11)</option>
+                        <option value="15" selected>Medium (15×15)</option>
+                        <option value="19">Large (19×19)</option>
+                        <option value="23">X-Large (23×23)</option>
+                    </select>
+                </div>
             </div>
             
             <div class="status-panel">
                 <div class="status-content" id="status">
-                    <div class="status-icon">🎯</div>
-                    <div class="status-text">Draw a line from start to end!</div>
+                    <div class="status-icon">🧭</div>
+                    <div class="status-text">Click the green circle to start navigating the maze!</div>
                 </div>
                 <div class="progress-bar">
                     <div class="progress-fill" id="progressFill"></div>
@@ -137,13 +151,13 @@
             <div class="features-grid">
                 <div class="feature-card">
                     <div class="feature-icon">🧩</div>
-                    <h3>Progressive Difficulty</h3>
-                    <p>Start simple and advance through increasingly complex puzzle mechanics</p>
+                    <h3>Progressive Mazes</h3>
+                    <p>Navigate through increasingly complex randomly generated mazes</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🎨</div>
                     <h3>Beautiful Graphics</h3>
-                    <p>Stunning visual effects and smooth animations enhance your puzzle experience</p>
+                    <p>Intuitive mouse-following navigation with smart pathfinding</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">📱</div>
@@ -167,20 +181,24 @@
                 <div class="step">
                     <div class="step-number">1</div>
                     <div class="step-content">
-                        <h3>Start at the Circle</h3>
-                        <p>Click and drag from the green starting circle</p>
+                        <h3>Click to Start</h3>
+                        <p>Click on the green starting circle to begin drawing</p>
                     </div>
                 </div>
                 <div class="step">
                     <div class="step-number">2</div>
                     <div class="step-content">
-                        <h3>Draw Your Path</h3>
-                        <p>Connect to adjacent grid points to form your line</p>
+                        <h3>Move to Preview</h3>
+                        <p>Move your mouse to preview the path, click to place points</p>
                     </div>
                 </div>
                 <div class="step">
                     <div class="step-number">3</div>
                     <div class="step-content">
+                        <h3>Reach the Goal</h3>
+                        <p>When you reach the red square, it automatically solves!</p>
+                    </div>
+                </div>
                         <h3>Reach the Goal</h3>
                         <p>End your path at the red square to complete the puzzle</p>
                     </div>
@@ -192,7 +210,7 @@
     <!-- Footer -->
     <footer class="footer">
         <div class="footer-content">
-            <p>&copy; 2024 Nexus Puzzles. Inspired by Jonathan Blow's The Witness.</p>
+            <p>&copy; 2024 Linel. Inspired by Jonathan Blow's The Witness.</p>
             <div class="footer-links">
                 <a href="#" onclick="showAbout()">About</a>
                 <a href="https://github.com/yourusername/line-drawing-puzzle-game" target="_blank">GitHub</a>
@@ -220,6 +238,15 @@
             // Initialize game
             if (window.initializeGame) {
                 window.initializeGame();
+                
+                // Set up maze size selector
+                const sizeSelect = document.getElementById('mazeSizeSelect');
+                if (sizeSelect && window.gameInstance) {
+                    sizeSelect.addEventListener('change', (e) => {
+                        const size = parseInt(e.target.value);
+                        window.gameInstance.setMazeSize(size, size);
+                    });
+                }
             }
         }
 
@@ -231,7 +258,7 @@
         }
 
         function showAbout() {
-            alert('Nexus Puzzles - A modern take on line-drawing puzzle games, inspired by The Witness.');
+            alert('Linel - A modern take on line-drawing puzzle games, inspired by The Witness.');
         }
 
         function showContact() {

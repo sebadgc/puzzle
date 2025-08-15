@@ -1,23 +1,23 @@
 /**
- * GAME.JS - Main Game Logic and State Management
+ * GAME.JS - Main Maze Game Logic and State Management
  * 
  * This module handles:
- * - Game state management
- * - Path validation and drawing logic
- * - Level progression
- * - Score and statistics tracking
- * - Integration between all other modules
+ * - Maze game state management
+ * - Path validation and tracking
+ * - Level progression with increasing difficulty
+ * - Score calculation and statistics
+ * - Integration between all maze components
  */
 
 // ===========================
-// GAME CLASS
+// MAZE GAME CLASS
 // ===========================
 
-class Game {
+class MazeGame {
     constructor(canvasId) {
         // Initialize core components
-        this.renderer = new GameRenderer(canvasId);
-        this.inputHandler = new InputHandler(this.renderer.getCanvas(), this);
+        this.renderer = new MazeRenderer(canvasId);
+        this.inputHandler = new MazeInputHandler(this.renderer.getCanvas(), this);
         
         // Game state
         this.currentPuzzle = null;
@@ -28,6 +28,10 @@ class Game {
         this.score = 0;
         this.solvedPuzzles = 0;
         
+        // Maze settings
+        this.currentWidth = GAME_CONFIG.DEFAULT_GRID_WIDTH;
+        this.currentHeight = GAME_CONFIG.DEFAULT_GRID_HEIGHT;
+        
         // UI elements
         this.statusElement = document.getElementById('status');
         this.levelElement = document.getElementById('levelNumber');
@@ -36,91 +40,85 @@ class Game {
         
         this.initialize();
         
-        debugLog('Game Initialized', {
+        debugLog('Maze Game Initialized', {
             level: this.level,
-            score: this.score
+            score: this.score,
+            mazeSize: `${this.currentWidth}x${this.currentHeight}`
         });
     }
     
     /**
-     * Initializes the game with first puzzle
+     * Initializes the game with first maze
      */
     initialize() {
-        this.generateNewPuzzle();
+        this.generateNewMaze();
         this.updateUI();
         this.isPlaying = true;
     }
     
     /**
-     * Generates a new puzzle based on current level
+     * Generates a new maze puzzle
+     * @param {number} width - Optional width override
+     * @param {number} height - Optional height override
      */
-    generateNewPuzzle() {
-        // For now, create basic puzzles
-        // Later we can add complexity based on level
-        this.currentPuzzle = createRandomPuzzle(PUZZLE_TYPES.BASIC);
+    generateNewMaze(width = null, height = null) {
+        // Use provided dimensions or calculate based on level
+        if (width && height) {
+            this.currentWidth = Math.max(GAME_CONFIG.MIN_GRID_SIZE, Math.min(GAME_CONFIG.MAX_GRID_SIZE, width));
+            this.currentHeight = Math.max(GAME_CONFIG.MIN_GRID_SIZE, Math.min(GAME_CONFIG.MAX_GRID_SIZE, height));
+        } else {
+            // Increase maze size every few levels
+            const sizeIncrease = Math.floor(this.level / 3);
+            this.currentWidth = Math.min(GAME_CONFIG.DEFAULT_GRID_WIDTH + sizeIncrease, GAME_CONFIG.MAX_GRID_SIZE);
+            this.currentHeight = Math.min(GAME_CONFIG.DEFAULT_GRID_HEIGHT + sizeIncrease, GAME_CONFIG.MAX_GRID_SIZE);
+        }
+        
+        // Create new maze puzzle
+        this.currentPuzzle = new MazePuzzle(this.currentWidth, this.currentHeight);
         this.currentPath = [];
         
-        this.render();
-        this.updateStatus("Draw a line from start to end!");
+        // Resize canvas to fit new maze
+        this.renderer.resizeCanvas(this.currentWidth, this.currentHeight);
         
-        debugLog('New Puzzle Generated', {
-            type: this.currentPuzzle.type,
-            level: this.level
+        // Clear input handler state
+        if (this.inputHandler) {
+            this.inputHandler.clearPath();
+        }
+        
+        this.render();
+        this.updateStatus("Click the green circle to start navigating the maze!");
+        this.updateProgress(0);
+        
+        debugLog('New Maze Generated', {
+            size: `${this.currentWidth}x${this.currentHeight}`,
+            level: this.level,
+            start: this.currentPuzzle.startPoint,
+            end: this.currentPuzzle.endPoint
         });
     }
     
     /**
-     * Checks if drawing can start at the given position
-     * @param {Object} gridPos - {x, y} grid coordinates
-     * @returns {boolean} - True if drawing can start here
-     */
-    canStartDrawingAt(gridPos) {
-        if (!this.currentPuzzle || !this.isPlaying) return false;
-        
-        return pointsEqual(gridPos, this.currentPuzzle.startPoint);
-    }
-    
-    /**
      * Starts a new path from the given position
-     * @param {Object} gridPos - {x, y} grid coordinates
+     * @param {Array} path - Starting path (usually just start position)
      */
-    startPath(gridPos) {
-        if (!this.canStartDrawingAt(gridPos)) return;
-        
-        this.currentPath = [gridPos];
-        this.updateStatus("Drawing path...");
+    startPath(path) {
+        this.currentPath = [...path];
+        this.updateStatus("Navigate to the red square. Click again to stop following.");
         this.render();
         
-        debugLog('Path Started', gridPos);
+        debugLog('Path Started', { pathLength: path.length });
     }
     
     /**
-     * Adds a point to the current path
-     * @param {Object} gridPos - {x, y} grid coordinates
+     * Updates the current path
+     * @param {Array} newPath - Updated path
      */
-    addPointToPath(gridPos) {
-        if (!this.isPlaying || this.currentPath.length === 0) return;
-        
-        // Check if this point is already in the path (avoid loops)
-        const existingIndex = this.currentPath.findIndex(point => 
-            pointsEqual(point, gridPos)
-        );
-        
-        if (existingIndex !== -1) {
-            // If we're backtracking, remove points after this one
-            if (existingIndex < this.currentPath.length - 1) {
-                this.currentPath = this.currentPath.slice(0, existingIndex + 1);
-            }
-        } else {
-            // Add new point
-            this.currentPath.push(gridPos);
-        }
-        
+    updatePath(newPath) {
+        this.currentPath = [...newPath];
         this.render();
         this.updateProgress();
         
-        debugLog('Point Added', {
-            point: gridPos,
+        debugLog('Path Updated', {
             pathLength: this.currentPath.length
         });
     }
@@ -147,10 +145,10 @@ class Game {
     }
     
     /**
-     * Handles successful puzzle completion
+     * Handles successful maze completion
      */
     handleSuccess() {
-        this.updateStatus("🎉 Puzzle Solved! Great job!", "success");
+        this.updateStatus("🎉 Maze solved! Excellent navigation!", "success");
         this.score += this.calculateScore();
         this.solvedPuzzles++;
         
@@ -158,8 +156,8 @@ class Game {
         this.showCompletionAnimation();
         
         // Start celebration animation
-        this.renderer.celebrateWin(this.currentPath, () => {
-            // Auto-advance to next puzzle after a delay
+        this.renderer.celebrateWin(this.currentPath, this.currentPuzzle, () => {
+            // Auto-advance to next level after a delay
             setTimeout(() => {
                 this.nextLevel();
             }, 2000);
@@ -168,28 +166,27 @@ class Game {
         this.updateUI();
         this.updateProgress(100);
         
-        debugLog('Puzzle Solved', {
+        debugLog('Maze Solved', {
             score: this.score,
             level: this.level,
-            solvedPuzzles: this.solvedPuzzles
+            solvedPuzzles: this.solvedPuzzles,
+            pathLength: this.currentPath.length,
+            optimalLength: this.currentPuzzle.solution ? this.currentPuzzle.solution.length : 0
         });
     }
     
     /**
-     * Handles puzzle failure
+     * Handles maze failure
      * @param {string} message - Error message
      */
     handleFailure(message) {
         this.updateStatus(message, "error");
         
-        // Optional: Add visual feedback for failure
-        // this.showFailureEffect();
-        
-        debugLog('Puzzle Failed', { message });
+        debugLog('Maze Failed', { message });
     }
     
     /**
-     * Calculates score based on path efficiency and time
+     * Calculates score based on path efficiency and maze complexity
      * @returns {number} - Points earned
      */
     calculateScore() {
@@ -197,29 +194,22 @@ class Game {
         
         const baseScore = 100;
         const pathLength = this.currentPath.length;
-        const minPath = this.getMinimumPathLength();
+        const optimalLength = this.currentPuzzle.solution ? this.currentPuzzle.solution.length : pathLength;
         
-        // Bonus for efficient path
-        const efficiencyBonus = Math.max(0, (minPath * 2 - pathLength) * 10);
+        // Efficiency bonus (more points for shorter paths)
+        const efficiency = optimalLength / pathLength;
+        const efficiencyBonus = Math.floor((efficiency - 0.5) * 100);
+        
+        // Maze complexity bonus
+        const stats = this.currentPuzzle.getStats();
+        const complexityBonus = Math.floor(stats.complexity * 2);
         
         // Level multiplier
         const levelMultiplier = this.level;
         
-        return Math.floor((baseScore + efficiencyBonus) * levelMultiplier);
-    }
-    
-    /**
-     * Estimates minimum path length for current puzzle
-     * @returns {number} - Minimum possible path length
-     */
-    getMinimumPathLength() {
-        if (!this.currentPuzzle) return 1;
+        const totalScore = Math.max(50, (baseScore + efficiencyBonus + complexityBonus) * levelMultiplier);
         
-        // Simple Manhattan distance for basic puzzles
-        const start = this.currentPuzzle.startPoint;
-        const end = this.currentPuzzle.endPoint;
-        
-        return Math.abs(end.x - start.x) + Math.abs(end.y - start.y) + 1;
+        return Math.floor(totalScore);
     }
     
     /**
@@ -233,7 +223,7 @@ class Game {
             // Hide after animation
             setTimeout(() => {
                 animationElement.classList.remove('show');
-            }, 2000);
+            }, GAME_CONFIG.CELEBRATION_DURATION);
         }
     }
     
@@ -242,10 +232,13 @@ class Game {
      */
     nextLevel() {
         this.level++;
-        this.generateNewPuzzle();
+        this.generateNewMaze();
         this.updateUI();
         
-        debugLog('Level Advanced', { newLevel: this.level });
+        debugLog('Level Advanced', { 
+            newLevel: this.level,
+            newSize: `${this.currentWidth}x${this.currentHeight}`
+        });
     }
     
     /**
@@ -253,15 +246,21 @@ class Game {
      */
     clearPath() {
         this.currentPath = [];
+        
+        // Clear input handler state
+        if (this.inputHandler) {
+            this.inputHandler.clearPath();
+        }
+        
         this.render();
-        this.updateStatus("Draw a line from start to end!");
+        this.updateStatus("Click the green circle to start navigating!");
         this.updateProgress(0);
         
         debugLog('Path Cleared', {});
     }
     
     /**
-     * Shows a hint for the current puzzle
+     * Shows a hint for the current maze
      */
     showHint() {
         if (!this.currentPuzzle) return;
@@ -271,10 +270,28 @@ class Game {
         
         // Reset status after a few seconds
         setTimeout(() => {
-            this.updateStatus("Draw a line from start to end!");
+            if (this.inputHandler && this.inputHandler.isCurrentlyFollowing()) {
+                this.updateStatus("Navigate to the red square. Click to stop following.");
+            } else {
+                this.updateStatus("Click the green circle to start navigating!");
+            }
         }, 3000);
         
         debugLog('Hint Shown', { hint });
+    }
+    
+    /**
+     * Sets custom maze dimensions
+     * @param {number} width - Maze width
+     * @param {number} height - Maze height
+     */
+    setMazeSize(width, height) {
+        this.generateNewMaze(width, height);
+        
+        debugLog('Maze Size Changed', { 
+            newSize: `${width}x${height}`,
+            level: this.level 
+        });
     }
     
     /**
@@ -298,11 +315,16 @@ class Game {
      * @param {number} percentage - Progress percentage (0-100)
      */
     updateProgress(percentage = null) {
-        if (percentage === null) {
-            // Calculate progress based on path length vs minimum path
-            const minPath = this.getMinimumPathLength();
-            const currentLength = this.currentPath.length;
-            percentage = Math.min(100, (currentLength / minPath) * 100);
+        if (percentage === null && this.currentPuzzle) {
+            // Calculate progress based on distance to goal
+            if (this.currentPath.length > 0) {
+                const currentPos = this.currentPath[this.currentPath.length - 1];
+                const distance = getDistance(currentPos, this.currentPuzzle.endPoint);
+                const maxDistance = getDistance(this.currentPuzzle.startPoint, this.currentPuzzle.endPoint);
+                percentage = Math.max(0, 100 - (distance / maxDistance) * 100);
+            } else {
+                percentage = 0;
+            }
         }
         
         if (this.progressElement) {
@@ -340,7 +362,7 @@ class Game {
     resume() {
         this.isPaused = false;
         this.inputHandler.enable();
-        this.updateStatus("Draw a line from start to end!");
+        this.updateStatus("Click the green circle to start navigating!");
         
         debugLog('Game Resumed', {});
     }
@@ -353,7 +375,10 @@ class Game {
         this.score = 0;
         this.solvedPuzzles = 0;
         this.currentPath = [];
-        this.generateNewPuzzle();
+        this.currentWidth = GAME_CONFIG.DEFAULT_GRID_WIDTH;
+        this.currentHeight = GAME_CONFIG.DEFAULT_GRID_HEIGHT;
+        
+        this.generateNewMaze();
         this.updateUI();
         this.updateProgress(0);
         
@@ -365,13 +390,17 @@ class Game {
      * @returns {Object} - Game statistics
      */
     getStats() {
+        const mazeStats = this.currentPuzzle ? this.currentPuzzle.getStats() : {};
+        
         return {
             level: this.level,
             score: this.score,
             solvedPuzzles: this.solvedPuzzles,
             currentPathLength: this.currentPath.length,
             isPlaying: this.isPlaying,
-            isPaused: this.isPaused
+            isPaused: this.isPaused,
+            mazeSize: `${this.currentWidth}x${this.currentHeight}`,
+            ...mazeStats
         };
     }
     
@@ -383,13 +412,15 @@ class Game {
             level: this.level,
             score: this.score,
             solvedPuzzles: this.solvedPuzzles,
-            currentPuzzle: this.currentPuzzle ? this.currentPuzzle.serialize() : null,
             currentPath: this.currentPath,
+            currentWidth: this.currentWidth,
+            currentHeight: this.currentHeight,
+            currentPuzzle: this.currentPuzzle ? this.currentPuzzle.serialize() : null,
             timestamp: Date.now()
         };
         
         try {
-            localStorage.setItem('lineDrawingPuzzleGame', JSON.stringify(gameData));
+            localStorage.setItem('mazeNavigationGame', JSON.stringify(gameData));
             debugLog('Game Saved', gameData);
         } catch (error) {
             debugLog('Save Failed', { error: error.message });
@@ -402,7 +433,7 @@ class Game {
      */
     loadGame() {
         try {
-            const savedData = localStorage.getItem('lineDrawingPuzzleGame');
+            const savedData = localStorage.getItem('mazeNavigationGame');
             if (!savedData) return false;
             
             const gameData = JSON.parse(savedData);
@@ -411,12 +442,15 @@ class Game {
             this.score = gameData.score || 0;
             this.solvedPuzzles = gameData.solvedPuzzles || 0;
             this.currentPath = gameData.currentPath || [];
+            this.currentWidth = gameData.currentWidth || GAME_CONFIG.DEFAULT_GRID_WIDTH;
+            this.currentHeight = gameData.currentHeight || GAME_CONFIG.DEFAULT_GRID_HEIGHT;
             
             if (gameData.currentPuzzle) {
-                this.currentPuzzle = new Puzzle();
+                this.currentPuzzle = new MazePuzzle();
                 this.currentPuzzle.deserialize(gameData.currentPuzzle);
+                this.renderer.resizeCanvas(this.currentWidth, this.currentHeight);
             } else {
-                this.generateNewPuzzle();
+                this.generateNewMaze();
             }
             
             this.updateUI();
@@ -442,23 +476,23 @@ class Game {
 }
 
 // ===========================
-// GAME MANAGER FUNCTIONS
+// MAZE GAME MANAGER FUNCTIONS
 // ===========================
 
 /**
- * Creates and initializes a new game instance
+ * Creates and initializes a new maze game instance
  * @param {string} canvasId - Canvas element ID
- * @returns {Game} - New game instance
+ * @returns {MazeGame} - New game instance
  */
-function createGame(canvasId) {
-    return new Game(canvasId);
+function createMazeGame(canvasId) {
+    return new MazeGame(canvasId);
 }
 
 /**
- * Sets up control button event listeners
- * @param {Game} game - Game instance
+ * Sets up control button event listeners for maze game
+ * @param {MazeGame} game - Game instance
  */
-function setupControlButtons(game) {
+function setupMazeControlButtons(game) {
     const clearBtn = document.getElementById('clearBtn');
     const newPuzzleBtn = document.getElementById('newPuzzleBtn');
     const hintBtn = document.getElementById('hintBtn');
@@ -471,7 +505,7 @@ function setupControlButtons(game) {
     
     if (newPuzzleBtn) {
         newPuzzleBtn.addEventListener('click', () => {
-            game.generateNewPuzzle();
+            game.generateNewMaze();
         });
     }
     
@@ -481,7 +515,7 @@ function setupControlButtons(game) {
         });
     }
     
-    debugLog('Control Buttons Setup', {
+    debugLog('Maze Control Buttons Setup', {
         clearBtn: !!clearBtn,
         newPuzzleBtn: !!newPuzzleBtn,
         hintBtn: !!hintBtn
@@ -489,10 +523,10 @@ function setupControlButtons(game) {
 }
 
 /**
- * Sets up keyboard shortcuts
- * @param {Game} game - Game instance
+ * Sets up maze-specific keyboard shortcuts
+ * @param {MazeGame} game - Game instance
  */
-function setupKeyboardControls(game) {
+function setupMazeKeyboardControls(game) {
     document.addEventListener('keydown', (event) => {
         if (!game.isPlaying) return;
         
@@ -503,7 +537,7 @@ function setupKeyboardControls(game) {
                 break;
             case 'n':
             case 'N':
-                game.generateNewPuzzle();
+                game.generateNewMaze();
                 break;
             case 'h':
             case 'H':
@@ -524,39 +558,65 @@ function setupKeyboardControls(game) {
                     game.reset();
                 }
                 break;
+            case '+':
+            case '=':
+                // Increase maze size
+                if (event.ctrlKey || event.metaKey) {
+                    event.preventDefault();
+                    const newSize = Math.min(game.currentWidth + 2, GAME_CONFIG.MAX_GRID_SIZE);
+                    game.setMazeSize(newSize, newSize);
+                }
+                break;
+            case '-':
+            case '_':
+                // Decrease maze size
+                if (event.ctrlKey || event.metaKey) {
+                    event.preventDefault();
+                    const newSize = Math.max(game.currentWidth - 2, GAME_CONFIG.MIN_GRID_SIZE);
+                    game.setMazeSize(newSize, newSize);
+                }
+                break;
         }
     });
     
-    debugLog('Keyboard Controls Setup', {});
+    debugLog('Maze Keyboard Controls Setup', {});
 }
 
 /**
- * Sets up auto-save functionality
- * @param {Game} game - Game instance
+ * Creates maze size selector UI
+ * @param {MazeGame} game - Game instance
  */
-function setupAutoSave(game) {
-    // Save game every 30 seconds
-    setInterval(() => {
-        if (game.isPlaying) {
-            game.saveGame();
-        }
-    }, 30000);
+function createMazeSizeSelector(game) {
+    // This would create a UI element for selecting maze size
+    // Implementation depends on where you want to place it in the UI
+    const sizeSelector = document.createElement('div');
+    sizeSelector.className = 'maze-size-selector';
+    sizeSelector.innerHTML = `
+        <label>Maze Size: </label>
+        <select id="mazeSizeSelect">
+            <option value="11">Small (11x11)</option>
+            <option value="15" selected>Medium (15x15)</option>
+            <option value="19">Large (19x19)</option>
+            <option value="23">Extra Large (23x23)</option>
+        </select>
+    `;
     
-    // Save when page is about to close
-    window.addEventListener('beforeunload', () => {
-        game.saveGame();
+    const select = sizeSelector.querySelector('#mazeSizeSelect');
+    select.addEventListener('change', (e) => {
+        const size = parseInt(e.target.value);
+        game.setMazeSize(size, size);
     });
     
-    debugLog('Auto-save Setup', {});
+    return sizeSelector;
 }
 
 // ===========================
 // EXPORT FOR OTHER MODULES
 // ===========================
 
-// Make Game class and functions available globally
-window.Game = Game;
-window.createGame = createGame;
-window.setupControlButtons = setupControlButtons;
-window.setupKeyboardControls = setupKeyboardControls;
-window.setupAutoSave = setupAutoSave;
+// Make MazeGame class and functions available globally
+window.MazeGame = MazeGame;
+window.createMazeGame = createMazeGame;
+window.setupMazeControlButtons = setupMazeControlButtons;
+window.setupMazeKeyboardControls = setupMazeKeyboardControls;
+window.createMazeSizeSelector = createMazeSizeSelector;
