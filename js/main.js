@@ -64,7 +64,7 @@ function setupInitialUI() {
 }
 
 /**
- * Initializes the game (called when user clicks "Start Puzzle")
+ * Initializes the maze game (called when user clicks "Start Puzzle")
  */
 function initializeGame() {
     if (isGameInitialized) {
@@ -73,39 +73,83 @@ function initializeGame() {
     }
     
     try {
-        // Create the game instance
-        gameInstance = createGame('puzzleCanvas');
+        console.log('🎮 Initializing maze game...');
+        
+        // Create the maze game instance
+        gameInstance = createMazeGame('puzzleCanvas');
+        console.log('✅ Game instance created');
         
         // Set up all the controls and features
-        setupControlButtons(gameInstance);
-        setupKeyboardControls(gameInstance);
+        setupMazeControlButtons(gameInstance);
+        console.log('✅ Control buttons setup');
+        
+        setupMazeKeyboardControls(gameInstance);
+        console.log('✅ Keyboard controls setup');
+        
+        // Setup auto-save (simplified)
         setupAutoSave(gameInstance);
+        console.log('✅ Auto-save setup');
         
         // Try to load saved game
         const loadSuccess = gameInstance.loadGame();
         if (!loadSuccess) {
-            debugLog('No saved game found, starting fresh', {});
+            console.log('No saved game found, starting fresh');
         }
         
         // Mark as initialized
         isGameInitialized = true;
         
         // Show welcome message
-        updateStatus("🎮 Game ready! Draw a line from start to end!");
+        updateStatus("🎮 Maze ready! Click the green circle to start navigating!");
         
-        debugLog('Game Initialization Complete', {
+        console.log('🎉 Maze Game Initialization Complete!', {
             loadedSave: loadSuccess,
             level: gameInstance.level,
-            score: gameInstance.score
+            score: gameInstance.score,
+            mazeSize: `${gameInstance.currentWidth}x${gameInstance.currentHeight}`
         });
         
         return gameInstance;
         
     } catch (error) {
-        console.error('Failed to initialize game:', error);
+        console.error('❌ Failed to initialize maze game:', error);
         updateStatus("❌ Failed to initialize game. Please refresh the page.", "error");
         return null;
     }
+}
+
+/**
+ * Sets up auto-save functionality - SIMPLIFIED
+ * @param {MazeGame} game - Game instance
+ */
+function setupAutoSave(game) {
+    if (!game) return;
+    
+    console.log('💾 Setting up auto-save...');
+    
+    // Save game every 30 seconds
+    setInterval(() => {
+        if (game.isPlaying) {
+            try {
+                game.saveGame();
+                console.log('💾 Auto-saved game');
+            } catch (error) {
+                console.log('⚠️ Auto-save failed:', error.message);
+            }
+        }
+    }, 30000);
+    
+    // Save when page is about to close
+    window.addEventListener('beforeunload', () => {
+        try {
+            game.saveGame();
+            console.log('💾 Saved game before page unload');
+        } catch (error) {
+            console.log('⚠️ Save on unload failed:', error.message);
+        }
+    });
+    
+    console.log('✅ Auto-save setup complete');
 }
 
 /**
@@ -149,13 +193,13 @@ window.clearPath = function() {
 };
 
 /**
- * Global function to generate a new puzzle
+ * Global function to generate a new maze
  */
 window.generateNewPuzzle = function() {
     if (gameInstance) {
-        gameInstance.generateNewPuzzle();
+        gameInstance.generateNewMaze();
     } else {
-        debugLog('Cannot generate puzzle - game not initialized', {});
+        debugLog('Cannot generate maze - game not initialized', {});
     }
 };
 

@@ -354,16 +354,23 @@ body {
 }
 
 #puzzleCanvas {
-    background: rgba(255, 255, 255, 0.95);
+    background: transparent;
     border-radius: var(--border-radius-small);
-    box-shadow: var(--shadow-hard);
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
     cursor: crosshair;
     transition: var(--transition);
     display: block;
+    border: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 #puzzleCanvas:hover {
-    box-shadow: var(--shadow-glow), var(--shadow-hard);
+    box-shadow: 
+        0 12px 40px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(33, 150, 243, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    border-color: rgba(33, 150, 243, 0.3);
 }
 
 .canvas-overlay {
@@ -468,8 +475,52 @@ body {
 }
 
 /* ===========================
-   STATUS PANEL
+   MAZE SIZE CONTROLS
    =========================== */
+
+.maze-size-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    justify-content: center;
+}
+
+.size-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.size-select {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 15px;
+    padding: 0.5rem 1rem;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: var(--transition);
+    min-width: 140px;
+}
+
+.size-select:focus {
+    outline: none;
+    border-color: var(--text-accent);
+    box-shadow: 0 0 0 2px rgba(0, 245, 255, 0.2);
+}
+
+.size-select:hover {
+    background: var(--glass-border);
+    transform: translateY(-1px);
+}
+
+.size-select option {
+    background: var(--primary-gradient);
+    color: var(--text-primary);
+    padding: 0.5rem;
+}
 
 .status-panel {
     width: 100%;
