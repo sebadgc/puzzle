@@ -2,259 +2,255 @@
  * MAIN.JS - Application Entry Point
  * 
  * This module:
- * - Initializes the game when the page loads
- * - Coordinates between all other modules
- * - Handles global application state
- * - Sets up the main game loop
+ * - Initializes the application
+ * - Manages page transitions
+ * - Handles global event listeners
  */
 
-// ===========================
-// GLOBAL VARIABLES
-// ===========================
-
+// Global game instance
 let gameInstance = null;
-let isGameInitialized = false;
-
-// ===========================
-// INITIALIZATION
-// ===========================
 
 /**
- * Initializes the entire application
+ * Initialize the application when DOM is ready
  */
 function initializeApp() {
-    debugLog('App Initialization Started', {});
-    
-    // Wait for DOM to be fully loaded
+    // Wait for DOM to be ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initializeApp);
         return;
     }
     
-    // Check if game canvas exists
-    const canvas = document.getElementById('puzzleCanvas');
-    if (!canvas) {
-        console.error('Canvas element not found! Make sure the HTML is loaded correctly.');
-        return;
-    }
+    setupPageTransitions();
+    setupGlobalListeners();
     
-    // Initialize the game only when explicitly started
-    setupInitialUI();
-    
-    debugLog('App Initialization Complete', {
-        canvasFound: !!canvas,
-        gameInitialized: isGameInitialized
-    });
+    console.log('🎮 Linel - Application initialized');
 }
 
 /**
- * Sets up the initial UI state
+ * Setup page transitions and navigation
  */
-function setupInitialUI() {
-    // Hide game section initially
+function setupPageTransitions() {
+    // Make sure hero section is visible initially
+    const heroSection = document.querySelector('.hero');
     const gameSection = document.getElementById('gameSection');
-    if (gameSection) {
-        gameSection.style.display = 'none';
-    }
+    const featuresSection = document.getElementById('featuresSection');
+    const instructionsSection = document.querySelector('.instructions');
     
-    // Set up the start button functionality
-    window.initializeGame = initializeGame;
-    
-    debugLog('Initial UI Setup Complete', {});
+    if (heroSection) heroSection.style.display = 'flex';
+    if (gameSection) gameSection.style.display = 'none';
+    if (featuresSection) featuresSection.style.display = 'block';
+    if (instructionsSection) instructionsSection.style.display = 'block';
 }
 
 /**
- * Initializes the maze game (called when user clicks "Start Puzzle")
+ * Setup global event listeners
+ */
+function setupGlobalListeners() {
+    // Make functions globally accessible
+    window.startGame = startGame;
+    window.showMenu = showMenu;
+    window.showAbout = showAbout;
+    window.showContact = showContact;
+    
+    // Setup smooth scrolling
+    document.documentElement.style.scrollBehavior = 'smooth';
+}
+
+/**
+ * Start the game
+ */
+function startGame() {
+    console.log('🚀 Starting game...');
+    
+    // Hide hero and show game section
+    const heroSection = document.querySelector('.hero');
+    const gameSection = document.getElementById('gameSection');
+    const featuresSection = document.getElementById('featuresSection');
+    const instructionsSection = document.querySelector('.instructions');
+    
+    if (heroSection) heroSection.style.display = 'none';
+    if (gameSection) gameSection.style.display = 'block';
+    if (featuresSection) featuresSection.style.display = 'none';
+    if (instructionsSection) instructionsSection.style.display = 'none';
+    
+    // Initialize game if not already done
+    if (!gameInstance) {
+        initializeGame();
+    }
+    
+    // Scroll to top
+    window.scrollTo(0, 0);
+}
+
+/**
+ * Initialize the game
  */
 function initializeGame() {
-    if (isGameInitialized) {
-        debugLog('Game Already Initialized', {});
-        return gameInstance;
-    }
-    
     try {
-        console.log('🎮 Initializing maze game...');
+        // Create game instance
+        gameInstance = new Game('puzzleCanvas');
         
-        // Create the maze game instance
-        gameInstance = createMazeGame('puzzleCanvas');
-        console.log('✅ Game instance created');
+        // Setup control buttons
+        setupControlButtons();
         
-        // Set up all the controls and features
-        setupMazeControlButtons(gameInstance);
-        console.log('✅ Control buttons setup');
+        // Setup settings controls
+        setupSettingsControls();
         
-        setupMazeKeyboardControls(gameInstance);
-        console.log('✅ Keyboard controls setup');
+        // Setup keyboard shortcuts
+        setupKeyboardShortcuts();
         
-        // Setup auto-save (simplified)
-        setupAutoSave(gameInstance);
-        console.log('✅ Auto-save setup');
+        // Make game instance globally accessible for debugging
+        window.game = gameInstance;
         
-        // Try to load saved game
-        const loadSuccess = gameInstance.loadGame();
-        if (!loadSuccess) {
-            console.log('No saved game found, starting fresh');
-        }
-        
-        // Mark as initialized
-        isGameInitialized = true;
-        
-        // Show welcome message
-        updateStatus("🎮 Maze ready! Click the green circle to start navigating!");
-        
-        console.log('🎉 Maze Game Initialization Complete!', {
-            loadedSave: loadSuccess,
-            level: gameInstance.level,
-            score: gameInstance.score,
-            mazeSize: `${gameInstance.currentWidth}x${gameInstance.currentHeight}`
-        });
-        
-        return gameInstance;
+        console.log('✅ Game initialized successfully');
         
     } catch (error) {
-        console.error('❌ Failed to initialize maze game:', error);
-        updateStatus("❌ Failed to initialize game. Please refresh the page.", "error");
-        return null;
+        console.error('❌ Failed to initialize game:', error);
+        updateStatus('Failed to initialize game. Please refresh the page.', 'error');
     }
 }
 
 /**
- * Sets up auto-save functionality - SIMPLIFIED
- * @param {MazeGame} game - Game instance
+ * Setup game control buttons
  */
-function setupAutoSave(game) {
-    if (!game) return;
+function setupControlButtons() {
+    const clearBtn = document.getElementById('clearBtn');
+    const newPuzzleBtn = document.getElementById('newPuzzleBtn');
+    const hintBtn = document.getElementById('hintBtn');
     
-    console.log('💾 Setting up auto-save...');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            if (gameInstance) gameInstance.clearPath();
+        });
+    }
     
-    // Save game every 30 seconds
-    setInterval(() => {
-        if (game.isPlaying) {
-            try {
-                game.saveGame();
-                console.log('💾 Auto-saved game');
-            } catch (error) {
-                console.log('⚠️ Auto-save failed:', error.message);
-            }
+    if (newPuzzleBtn) {
+        newPuzzleBtn.addEventListener('click', () => {
+            if (gameInstance) gameInstance.generateNewMaze();
+        });
+    }
+    
+    if (hintBtn) {
+        hintBtn.addEventListener('click', () => {
+            if (gameInstance) gameInstance.showSolution();
+        });
+    }
+}
+
+/**
+ * Setup settings controls
+ */
+function setupSettingsControls() {
+    const mazeSizeSelect = document.getElementById('mazeSizeSelect');
+    
+    if (mazeSizeSelect) {
+        // Also check for cell size and resolution selects if they exist
+        const cellSizeSelect = document.getElementById('cellSizeSelect');
+        const resolutionSelect = document.getElementById('resolutionSelect');
+        
+        const updateSettings = () => {
+            if (!gameInstance) return;
+            
+            const mazeSize = parseInt(mazeSizeSelect.value) || GAME_CONFIG.DEFAULT_MAZE_SIZE;
+            const cellSize = cellSizeSelect ? 
+                parseInt(cellSizeSelect.value) : GAME_CONFIG.DEFAULT_CELL_SIZE;
+            const resolution = resolutionSelect ? 
+                parseInt(resolutionSelect.value) : GAME_CONFIG.DEFAULT_RESOLUTION;
+            
+            gameInstance.updateSettings(mazeSize, cellSize, resolution);
+        };
+        
+        mazeSizeSelect.addEventListener('change', updateSettings);
+        if (cellSizeSelect) cellSizeSelect.addEventListener('change', updateSettings);
+        if (resolutionSelect) resolutionSelect.addEventListener('change', updateSettings);
+    }
+}
+
+/**
+ * Setup keyboard shortcuts
+ */
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (event) => {
+        if (!gameInstance) return;
+        
+        // Ignore if typing in an input field
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+            return;
         }
-    }, 30000);
-    
-    // Save when page is about to close
-    window.addEventListener('beforeunload', () => {
-        try {
-            game.saveGame();
-            console.log('💾 Saved game before page unload');
-        } catch (error) {
-            console.log('⚠️ Save on unload failed:', error.message);
+        
+        switch(event.key.toLowerCase()) {
+            case 'c':
+                gameInstance.clearPath();
+                break;
+            case 'n':
+                gameInstance.generateNewMaze();
+                break;
+            case 'h':
+                gameInstance.showSolution();
+                break;
+            case 'escape':
+                showMenu();
+                break;
         }
     });
-    
-    console.log('✅ Auto-save setup complete');
 }
 
 /**
- * Gets the current game instance
- * @returns {Game|null} - Current game instance or null
+ * Show main menu
  */
-function getGameInstance() {
-    return gameInstance;
+function showMenu() {
+    console.log('📋 Showing menu...');
+    
+    const heroSection = document.querySelector('.hero');
+    const gameSection = document.getElementById('gameSection');
+    const featuresSection = document.getElementById('featuresSection');
+    const instructionsSection = document.querySelector('.instructions');
+    
+    if (heroSection) heroSection.style.display = 'flex';
+    if (gameSection) gameSection.style.display = 'none';
+    if (featuresSection) featuresSection.style.display = 'block';
+    if (instructionsSection) instructionsSection.style.display = 'block';
+    
+    // Scroll to top
+    window.scrollTo(0, 0);
 }
 
 /**
- * Restarts the game completely
+ * Show about dialog
  */
-function restartGame() {
-    if (gameInstance) {
-        gameInstance.destroy();
-    }
-    
-    isGameInitialized = false;
-    gameInstance = null;
-    
-    // Re-initialize
-    initializeGame();
-    
-    debugLog('Game Restarted', {});
+function showAbout() {
+    alert('Linel - A modern puzzle game inspired by The Witness.\n\nDraw lines from start to end while following puzzle rules.\n\nCreated with pure JavaScript and Canvas API.');
 }
 
-// ===========================
-// GLOBAL FUNCTIONS FOR UI
-// ===========================
+/**
+ * Show contact dialog
+ */
+function showContact() {
+    alert('Contact: your.email@example.com\n\nFor bug reports and suggestions, please visit our GitHub repository.');
+}
 
 /**
- * Global function to clear the current path
+ * Initialize floating animations for background
  */
-window.clearPath = function() {
-    if (gameInstance) {
-        gameInstance.clearPath();
-    } else {
-        debugLog('Cannot clear path - game not initialized', {});
-    }
-};
-
-/**
- * Global function to generate a new maze
- */
-window.generateNewPuzzle = function() {
-    if (gameInstance) {
-        gameInstance.generateNewMaze();
-    } else {
-        debugLog('Cannot generate maze - game not initialized', {});
-    }
-};
-
-/**
- * Global function to show hint
- */
-window.showHint = function() {
-    if (gameInstance) {
-        gameInstance.showHint();
-    } else {
-        debugLog('Cannot show hint - game not initialized', {});
-    }
-};
-
-// ===========================
-// ERROR HANDLING
-// ===========================
-
-/**
- * Global error handler
- */
-window.addEventListener('error', function(event) {
-    console.error('Global error caught:', event.error);
+function initFloatingAnimations() {
+    const floatingElements = document.querySelectorAll('.floating-circle, .floating-square, .floating-triangle');
     
-    // Try to gracefully handle the error
-    if (gameInstance) {
-        updateStatus("⚠️ An error occurred. The game is still playable.", "error");
-    }
-    
-    debugLog('Global Error', {
-        message: event.error.message,
-        filename: event.filename,
-        lineno: event.lineno
+    floatingElements.forEach((element, index) => {
+        // Add random delay to each element
+        element.style.animationDelay = `${index * 2}s`;
+        
+        // Add random duration for variety
+        const duration = 6 + Math.random() * 4;
+        element.style.animationDuration = `${duration}s`;
     });
-});
+}
 
 /**
- * Handle unhandled promise rejections
- */
-window.addEventListener('unhandledrejection', function(event) {
-    console.error('Unhandled promise rejection:', event.reason);
-    
-    debugLog('Unhandled Promise Rejection', {
-        reason: event.reason
-    });
-});
-
-// ===========================
-// PERFORMANCE MONITORING
-// ===========================
-
-/**
- * Monitor game performance
+ * Performance monitoring (development only)
  */
 function setupPerformanceMonitoring() {
+    if (!window.DEBUG_MODE) return;
+    
     let frameCount = 0;
     let lastTime = performance.now();
     
@@ -262,16 +258,12 @@ function setupPerformanceMonitoring() {
         frameCount++;
         const currentTime = performance.now();
         
-        // Check every 60 frames (roughly 1 second at 60fps)
         if (frameCount >= 60) {
             const deltaTime = currentTime - lastTime;
             const fps = (frameCount / deltaTime) * 1000;
             
             if (fps < 30) {
-                debugLog('Performance Warning', {
-                    fps: fps.toFixed(2),
-                    message: 'Low frame rate detected'
-                });
+                console.warn(`⚠️ Low FPS: ${fps.toFixed(2)}`);
             }
             
             frameCount = 0;
@@ -281,130 +273,64 @@ function setupPerformanceMonitoring() {
         requestAnimationFrame(checkPerformance);
     }
     
-    // Only monitor performance in debug mode
-    if (window.DEBUG_MODE) {
-        requestAnimationFrame(checkPerformance);
-    }
+    requestAnimationFrame(checkPerformance);
 }
 
-// ===========================
-// BROWSER COMPATIBILITY
-// ===========================
-
 /**
- * Checks browser compatibility and shows warnings if needed
+ * Auto-save functionality
  */
-function checkBrowserCompatibility() {
-    const issues = [];
+function setupAutoSave() {
+    if (!gameInstance) return;
     
-    // Check for Canvas support
-    if (!document.createElement('canvas').getContext) {
-        issues.push('Canvas not supported');
-    }
-    
-    // Check for localStorage support
-    try {
-        localStorage.setItem('test', 'test');
-        localStorage.removeItem('test');
-    } catch (e) {
-        issues.push('localStorage not available');
-    }
-    
-    // Check for modern JavaScript features
-    if (!Array.prototype.find) {
-        issues.push('Modern JavaScript not supported');
-    }
-    
-    if (issues.length > 0) {
-        console.warn('Browser compatibility issues:', issues);
-        updateStatus('⚠️ Your browser may not support all features.', 'error');
-    }
-    
-    debugLog('Browser Compatibility Check', {
-        issues: issues,
-        userAgent: navigator.userAgent
-    });
-}
-
-// ===========================
-// RESPONSIVE HANDLING
-// ===========================
-
-/**
- * Handles window resize events
- */
-function setupResponsiveHandling() {
-    let resizeTimeout;
-    
-    window.addEventListener('resize', function() {
-        // Debounce resize events
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(function() {
-            if (gameInstance && gameInstance.renderer) {
-                // Re-setup high DPI canvas on resize
-                gameInstance.renderer.setupHighDPICanvas();
-                gameInstance.render();
+    // Save game state every 30 seconds
+    setInterval(() => {
+        if (gameInstance) {
+            try {
+                const gameState = {
+                    level: gameInstance.level,
+                    score: gameInstance.score,
+                    timestamp: Date.now()
+                };
+                localStorage.setItem('linelGameState', JSON.stringify(gameState));
+                debugLog('Main', 'Game auto-saved');
+            } catch (error) {
+                console.error('Failed to save game:', error);
             }
-            
-            debugLog('Window Resized', {
-                width: window.innerWidth,
-                height: window.innerHeight
-            });
-        }, 250);
-    });
+        }
+    }, 30000);
 }
-
-// ===========================
-// DEVELOPMENT HELPERS
-// ===========================
 
 /**
- * Development helper functions (only available in debug mode)
+ * Load saved game state
  */
-function setupDevelopmentHelpers() {
-    if (!window.DEBUG_MODE) return;
-    
-    // Global debug functions
-    window.debugGame = function() {
-        if (gameInstance) {
-            console.log('Game Stats:', gameInstance.getStats());
-            console.log('Current Puzzle:', gameInstance.currentPuzzle);
-            console.log('Current Path:', gameInstance.currentPath);
+function loadGameState() {
+    try {
+        const savedState = localStorage.getItem('linelGameState');
+        if (savedState) {
+            const state = JSON.parse(savedState);
+            debugLog('Main', `Loaded saved game state: Level ${state.level}, Score ${state.score}`);
+            return state;
         }
-    };
-    
-    window.skipLevel = function() {
-        if (gameInstance) {
-            gameInstance.nextLevel();
-        }
-    };
-    
-    window.addScore = function(points = 100) {
-        if (gameInstance) {
-            gameInstance.score += points;
-            gameInstance.updateUI();
-        }
-    };
-    
-    debugLog('Development Helpers Setup', {});
+    } catch (error) {
+        console.error('Failed to load saved game:', error);
+    }
+    return null;
 }
 
 // ===========================
-// AUTO-START
+// INITIALIZE ON LOAD
 // ===========================
 
-// Initialize the application when this script loads
+// Start the application
 initializeApp();
-checkBrowserCompatibility();
-setupPerformanceMonitoring();
-setupResponsiveHandling();
-setupDevelopmentHelpers();
 
-// Enable debug mode for development
-// Remove this line for production
-window.DEBUG_MODE = true;
-
-debugLog('Main.js Loaded', {
-    debugMode: window.DEBUG_MODE,
-    timestamp: new Date().toISOString()
+// Initialize floating animations when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    initFloatingAnimations();
+    setupPerformanceMonitoring();
 });
+
+// Log that main.js has loaded
+console.log('📦 Main.js loaded - Linel Puzzle Game');
+console.log('🎮 Use window.game to access game instance in console');
+console.log('🐛 Set window.DEBUG_MODE = true for debug logs');
